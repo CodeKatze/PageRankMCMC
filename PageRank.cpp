@@ -93,12 +93,13 @@ int main(){
             pageRank[i] = pageRank_new[i]; 
         }
              
-        cout<<error<<endl;   
+        // cout<<error<<endl;   
     }
     for (size_t i = 0; i < N; i++)
     {
         cout<<pageRank[i]<<" ";
     }
+    cout<<endl;
     
     return 0;
 }

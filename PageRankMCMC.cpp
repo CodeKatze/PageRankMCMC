@@ -73,22 +73,27 @@ int main()
     unordered_map<int, vector<int>> WebGraph;           // Outgoing Links
     WebGraph = init_WebGraph();
     int NNodes = 281903;
+    // int NNodes = 4;
+
     int PageRank[NNodes] = {0};
     
     //RandomWalk
+    int m = 2;
     int MaxWalks = 10000;
-    int NumWalks = 1000000;
+    int NumWalks = m*NNodes;
+    
     uniform_int_distribution<int> distribution(1,NNodes);
 
-    #pragma omp parallel for num_threads(16) reduction(+:PageRank)
+    #pragma omp parallel for num_threads(2) reduction(+:PageRank)
     for (int i = 0; i < NumWalks; i++)
     {
         default_random_engine generator(i);
         int WalkCount = 0;
 
-        int currNode = distribution(generator);
-        // int currNode = 3;
-        // cout<<"The starting node for "<<i<<" = "<<currNode<<endl;
+        // int currNode = distribution(generator);
+
+        int currNode = i/m;
+        // cout<<"The starting node for "<<i<<" = "<<currNode << endl;
         default_random_engine generator1(time(0));
         
         while(true)
@@ -118,7 +123,11 @@ int main()
         // cout<<"The ending node for "<<i<<" = "<<currNode<<endl;
         // cout<<"The number of walks done by "<<i<<" - "<<WalkCount<<endl;
     }
-    
+
+    // for (size_t i = 0; i < NNodes; i++)
+    // {
+    //     cout<<PageRank[i]<<" ";
+    // }
     writeFile(PageRank, NNodes);
     return 0;
 }
