@@ -10,6 +10,21 @@
 
 using namespace std;
 
+void writeFile(int PageRank[], int N)
+{
+    fstream fout;
+    fout.open("PageRanksMCMC.txt", ios::out);
+
+    if(fout.is_open())
+    {   
+        for (size_t i = 0; i < N; i++)
+        {
+            fout<<PageRank[i]<<endl;            
+        }
+    }
+
+    fout.close();
+}
 
 void Split(char str[], int key[])
 {
@@ -41,6 +56,7 @@ unordered_map<int, vector<int>> init_WebGraph()
             WebGraph[key[0]].push_back(key[1]);
         }
 
+        fin.close();
     }
     else
     {
@@ -52,26 +68,26 @@ unordered_map<int, vector<int>> init_WebGraph()
 }
 
 
-
 int main()
 {
     unordered_map<int, vector<int>> WebGraph;           // Outgoing Links
     WebGraph = init_WebGraph();
     int NNodes = 281903;
-
+    int PageRank[NNodes] = {0};
     
     //RandomWalk
     int MaxWalks = 100;
     uniform_int_distribution<int> distribution(1,NNodes);
 
-    for (int i = 0; i < 10; i++)
+    #pragma omp parallel for num_threads(16)
+    for (int i = 0; i < 100000000; i++)
     {
         default_random_engine generator(i);
         int WalkCount = 0;
 
-        // int currNode = distribution(generator);
-        int currNode = 3;
-        cout<<"The starting node for "<<i<<" = "<<currNode<<endl;
+        int currNode = distribution(generator);
+        // int currNode = 3;
+        // cout<<"The starting node for "<<i<<" = "<<currNode<<endl;
         default_random_engine generator1(time(0));
         
         while(true)
@@ -84,7 +100,7 @@ int main()
                 int newNodeIndex = OutgoingDistribution(generator1);
                 newNodeIndex = OutgoingDistribution(generator1);
                 currNode = WebGraph[currNode][newNodeIndex];
-                cout<<currNode<<endl;
+                // cout<<currNode<<endl;
 
                 WalkCount++;
                 if (WalkCount >= MaxWalks)
@@ -93,15 +109,16 @@ int main()
             else
             {
                 //Stop Random Walk
-                cout<<"\nNo outgoing nodes. Ending \n";
+                // cout<<"\nEnding because no outgoing links. Current Node ="<<currNode<<"\n";
                 break;
             }
         }
-
-        cout<<"The ending node for "<<i<<" = "<<currNode<<endl;
-        cout<<"The number of walks done by "<<i<<" - "<<WalkCount<<endl;
+        PageRank[currNode]++;
+        // cout<<"The ending node for "<<i<<" = "<<currNode<<endl;
+        // cout<<"The number of walks done by "<<i<<" - "<<WalkCount<<endl;
     }
-   
+    
+    writeFile(PageRank, NNodes);
     return 0;
 }
 
