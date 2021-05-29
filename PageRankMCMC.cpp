@@ -58,35 +58,49 @@ int main()
     unordered_map<int, vector<int>> WebGraph;           // Outgoing Links
     WebGraph = init_WebGraph();
     int NNodes = 281903;
-    int b = 2; 
-    int a = WebGraph[b].size();
-    cout<<"Size  = "<<a<<endl;
 
-    // for (size_t i = 0; i < a; i++)
-    // {
-    //     cout<<WebGraph[b][i]<<endl;
-    // }
     
     //RandomWalk
-    default_random_engine generator(10);
+    int MaxWalks = 100;
     uniform_int_distribution<int> distribution(1,NNodes);
 
-    int currNode = distribution(generator);
-    cout<<currNode;
-    
-    // while()
-    // {
-    //     if WebGraph[currNode].size()>0
-    //     {
-    //         // update curr
-    //         // stopping conds for stopping walk
-    //     }
-    //     else
-    //     {
+    for (int i = 0; i < 10; i++)
+    {
+        default_random_engine generator(i);
+        int WalkCount = 0;
 
-    //     }
+        // int currNode = distribution(generator);
+        int currNode = 3;
+        cout<<"The starting node for "<<i<<" = "<<currNode<<endl;
+        default_random_engine generator1(time(0));
         
-    // }
+        while(true)
+        {
+            if (WebGraph[currNode].size() > 0)
+            {
+                int sizeOutgoing = WebGraph[currNode].size();
+                uniform_int_distribution<int> OutgoingDistribution(0,sizeOutgoing-1);
+
+                int newNodeIndex = OutgoingDistribution(generator1);
+                newNodeIndex = OutgoingDistribution(generator1);
+                currNode = WebGraph[currNode][newNodeIndex];
+                cout<<currNode<<endl;
+
+                WalkCount++;
+                if (WalkCount >= MaxWalks)
+                    break;
+            }
+            else
+            {
+                //Stop Random Walk
+                cout<<"\nNo outgoing nodes. Ending \n";
+                break;
+            }
+        }
+
+        cout<<"The ending node for "<<i<<" = "<<currNode<<endl;
+        cout<<"The number of walks done by "<<i<<" - "<<WalkCount<<endl;
+    }
    
     return 0;
 }
