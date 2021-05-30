@@ -6,11 +6,14 @@
 #include <string>
 #include <cstring>
 #include <math.h>
-#include <omp.h>
+#include <chrono>
+#ifdef _OPENMP
+    #include <omp.h>
+#endif
 
 using namespace std;
 
-void writeFile(int PageRank[], int N)
+void writeFile(double PageRank[], int N)
 {
     fstream fout;
     fout.open("PageRanksMCMC.txt", ios::out);
@@ -65,82 +68,151 @@ unordered_map<int, vector<int>> init_WebGraph(string filename)
 }
 
 
-int main()
+int main(int argc, char* argv[])
 {
-    //Initializing the Web Graph from the Data
-    unordered_map<int, vector<int>> WebGraph;           // Stores the Outgoing Links for each node 
-    WebGraph = init_WebGraph("test.txt");
-    // int NNodes = WebGraph.size();
-    int NNodes = 4;
+    int thread_count = 1;
+    // read the number of threads to be used for parallelization 
+    if (argc == 2)
+    {
+      thread_count = strtol(argv[1], NULL, 10);
+    }
+    else
+    {
+      printf("\n A command line argument other than name of the executable is required!");
+      return 1;
+    }
 
-    double PageRank[NNodes] = {0};
+
+    string FILENAME = "graphData.txt";                   // File containing the data
+    bool VERBOSE = false;                                // true to print results
+
+    // Important flags to choose algorithm (REFER to README for flag settings for each algorithm)
+    bool STOP_AT_DANGLING = true;                        // upon encountering a dangling node -> Stop or randomly restart at another node 
+    bool RANDOM_INIT = true;                             // start walk at random node or start m random walks @ each of the NNodes
+    int USE_VISITS = 1;                                   // 0 - Use Ending Node, 1 & 2 - Use Visited node 
+
+    // Parameters
+    int NNodes = 281903;                                 // Number of Nodes in the data
+    // int NNodes = 4;                                      // Number of Nodes in the data
+    double c = 0.85;                                     // Damping parameter
+    int m = 50;                                         // number of walks that start from each node
+    int NumWalks = m*NNodes;                             
+
+    //Initializing the Web Graph from the Data
+    unordered_map<int, vector<int>> WebGraph;            // Stores the Outgoing Links for each node 
+    WebGraph = init_WebGraph(FILENAME); 
+
+    double PageRank[NNodes] = {0};                       // PageRank score for each page
+    double Visits[NNodes] = {0};                         // Number of times each page is visited across all the walks
     
-    //RandomWalk
-    int m = 2;
-    double c = 0.85;
-    int MaxWalks = 10;
-    // int NumWalks = m*NNodes;
-    int NumWalks = 1000;
-    
-    default_random_engine generator(42);
+    //Random Number Generators
+    default_random_engine generator(time(0));
     uniform_int_distribution<int> AllNodesDistr(1,NNodes);
     uniform_real_distribution<double> ProbDistr(0,1);
 
-    // #pragma omp parallel for num_threads(2) reduction(+:PageRank)
+    auto time_start = std::chrono::high_resolution_clock::now();
+    #pragma omp parallel for num_threads(thread_count) reduction(+:PageRank)
     for (int i = 0; i < NumWalks; i++)
     {
-        int WalkCount = 0;
+        int StepCount = 0;
+        int currNode;
+        if(RANDOM_INIT == true) // Initialize the starting node randomly
+        {
+            currNode = AllNodesDistr(generator);
+        }
+        else                    // Initialize it uniformly
+        {
+            currNode = (i/m)+1;
+        }
 
-        int currNode = AllNodesDistr(generator);
-        // int currNode = i/m;
-        // int currNode = 2;
-
-        default_random_engine rand_generator(time(0));
-
-        cout<<"-------"<<endl<<"  "<<i<<"  "<<endl<<"-------"<<endl;
-        cout<<"The starting node = "<<currNode << endl;
+        if(VERBOSE)
+        {
+            cout<<"-------"<<endl<<"  "<<i<<"  "<<endl<<"-------"<<endl;
+            cout<<"The starting node = "<<currNode << endl;
+        }
         
+        // Start the Random Walk
         while(true)
         {
-            if (WebGraph[currNode].size() > 0)
+            double RandNum =  ProbDistr(generator);
+            int newNodeIndex;
+            if(RandNum <= c)    // Continue the Walk with a certain probability
             {
-                double RandNum =  ProbDistr(rand_generator);
-                int newNodeIndex;
-                if(RandNum <= c)
+                if (WebGraph[currNode].size() > 0)  // if currNode has outgoing nodes
                 {
                     int sizeOutgoing = WebGraph[currNode].size();
                     uniform_int_distribution<int> OutgoingDistribution(0,sizeOutgoing-1);
-                    newNodeIndex = OutgoingDistribution(rand_generator);
+                    newNodeIndex = OutgoingDistribution(generator);
                     currNode = WebGraph[currNode][newNodeIndex];
+                    StepCount++;
                 }
-                else
+                else                                // if currNode is a dangling node
                 {
-                    currNode = AllNodesDistr(generator);
+                    if (STOP_AT_DANGLING  == true)      // Stop Random Walk at dangling node
+                    {
+                        break;
+                    }
+                    else                                // Jump to a random node and try again
+                    {
+                        currNode = AllNodesDistr(generator);
+                        StepCount++;
+                    }
                 }
-
-                // cout<<currNode<<endl;
-
-                WalkCount++;
-                if (WalkCount >= MaxWalks)
-                    break;
             }
-            else
+            else                // Break from the loop with a certai probability 
             {
-                //Stop Random Walk
-                // cout<<"\nEnding because no outgoing links. Current Node ="<<currNode<<"\n";
                 break;
             }
+            
+            Visits[currNode-1] += 1;
         }
         PageRank[currNode-1] += 1;
-        cout<<"The ending node = "<<currNode<<endl;
-        cout<<"The number of steps done = "<<WalkCount<<endl;
+        Visits[currNode-1] += 1;
+
+        if(VERBOSE)
+        {
+            cout<<"The ending node = "<<currNode<<endl;
+            cout<<"The number of steps done = "<<StepCount<<endl;
+        }
+    }
+    auto time_end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<long double> time_elapsed = time_end - time_start;
+    cout<<"Time Taken = "<<time_elapsed.count()<<" seconds";
+
+    if(USE_VISITS == 1)         // Divide by Total Visited Pages
+    {
+        double TotalVisits = 0;
+        for (size_t i = 0; i < NNodes; i++)
+        {
+            TotalVisits += Visits[i];
+        }
+        for (size_t i = 0; i < NNodes; i++)
+        {
+            PageRank[i] = Visits[i]/TotalVisits;
+        }
+    }
+    else if(USE_VISITS == 2)    // Multiply by (1-c)/(mn)
+    {
+        for (size_t i = 0; i < NNodes; i++)
+        {
+            PageRank[i] = Visits[i]*(1-c)/NumWalks;
+        }
+
+    }
+    else                        // Use pagerank
+    {
+        for (size_t i = 0; i < NNodes; i++)
+        {
+            PageRank[i] = PageRank[i]/NumWalks;
+        }
     }
 
-    for (size_t i = 0; i < NNodes; i++)
-    {
-        cout<<PageRank[i]<<" ";
-    }
-    // writeFile(PageRank, NNodes);
+    // for (size_t i = 0; i < NNodes; i++)
+    // {
+    //     cout<<PageRank[i]<<", ";
+    // }
+
+    writeFile(PageRank, NNodes);
     return 0;
 }
 
