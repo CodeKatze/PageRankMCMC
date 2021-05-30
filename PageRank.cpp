@@ -29,7 +29,7 @@ void init_WebGraph(double WebMatrix[][N])
     WebMatrix[3][0] = 1/3;
     WebMatrix[3][1] = 0;
     WebMatrix[3][2] = 1/2;
-    WebMatrix[3][3] = 0;
+    WebMatrix[3][3] = 1/N;
 
 }
 // void init_WebGraph(double WebMatrix[][N])
@@ -73,7 +73,8 @@ int main(){
     cout << WebMatrix[1][1] << endl;
 
     double t = 0.0, c = 0.85;
-    double error = 1.0, TOL = 0.001;
+
+    double error = 1.0, TOL = 0.00001;
 
     while(error > TOL)
     {   

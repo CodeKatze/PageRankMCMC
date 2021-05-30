@@ -35,11 +35,11 @@ void Split(char str[], int key[])
     key[1] = atoi(token);
 }
 
-unordered_map<int, vector<int>> init_WebGraph()
+unordered_map<int, vector<int>> init_WebGraph(string filename)
 {   
     unordered_map<int, vector<int>> WebGraph;
     fstream fin;
-    fin.open("graphData.txt", ios::in);
+    fin.open(filename, ios::in);
 
     if (fin.is_open())
     {
@@ -48,14 +48,11 @@ unordered_map<int, vector<int>> init_WebGraph()
         int count = 0;
         while (getline(fin, line))
         {   
-            // int key = line
             char temp[200];
             strcpy(temp, line.c_str());
             Split(temp, key);
-            // cout << key[0] << " -> " << key[1] << endl << flush;
             WebGraph[key[0]].push_back(key[1]);
         }
-
         fin.close();
     }
     else
@@ -70,42 +67,57 @@ unordered_map<int, vector<int>> init_WebGraph()
 
 int main()
 {
-    unordered_map<int, vector<int>> WebGraph;           // Outgoing Links
-    WebGraph = init_WebGraph();
-    int NNodes = 281903;
-    // int NNodes = 4;
+    //Initializing the Web Graph from the Data
+    unordered_map<int, vector<int>> WebGraph;           // Stores the Outgoing Links for each node 
+    WebGraph = init_WebGraph("test.txt");
+    // int NNodes = WebGraph.size();
+    int NNodes = 4;
 
-    int PageRank[NNodes] = {0};
+    double PageRank[NNodes] = {0};
     
     //RandomWalk
     int m = 2;
-    int MaxWalks = 10000;
-    int NumWalks = m*NNodes;
+    double c = 0.85;
+    int MaxWalks = 10;
+    // int NumWalks = m*NNodes;
+    int NumWalks = 1000;
     
-    uniform_int_distribution<int> distribution(1,NNodes);
+    default_random_engine generator(42);
+    uniform_int_distribution<int> AllNodesDistr(1,NNodes);
+    uniform_real_distribution<double> ProbDistr(0,1);
 
-    #pragma omp parallel for num_threads(2) reduction(+:PageRank)
+    // #pragma omp parallel for num_threads(2) reduction(+:PageRank)
     for (int i = 0; i < NumWalks; i++)
     {
-        default_random_engine generator(i);
         int WalkCount = 0;
 
-        // int currNode = distribution(generator);
+        int currNode = AllNodesDistr(generator);
+        // int currNode = i/m;
+        // int currNode = 2;
 
-        int currNode = i/m;
-        // cout<<"The starting node for "<<i<<" = "<<currNode << endl;
-        default_random_engine generator1(time(0));
+        default_random_engine rand_generator(time(0));
+
+        cout<<"-------"<<endl<<"  "<<i<<"  "<<endl<<"-------"<<endl;
+        cout<<"The starting node = "<<currNode << endl;
         
         while(true)
         {
             if (WebGraph[currNode].size() > 0)
             {
-                int sizeOutgoing = WebGraph[currNode].size();
-                uniform_int_distribution<int> OutgoingDistribution(0,sizeOutgoing-1);
-                int newNodeIndex = OutgoingDistribution(generator1);
-                newNodeIndex = OutgoingDistribution(generator1);
+                double RandNum =  ProbDistr(rand_generator);
+                int newNodeIndex;
+                if(RandNum <= c)
+                {
+                    int sizeOutgoing = WebGraph[currNode].size();
+                    uniform_int_distribution<int> OutgoingDistribution(0,sizeOutgoing-1);
+                    newNodeIndex = OutgoingDistribution(rand_generator);
+                    currNode = WebGraph[currNode][newNodeIndex];
+                }
+                else
+                {
+                    currNode = AllNodesDistr(generator);
+                }
 
-                currNode = WebGraph[currNode][newNodeIndex];
                 // cout<<currNode<<endl;
 
                 WalkCount++;
@@ -119,16 +131,16 @@ int main()
                 break;
             }
         }
-        PageRank[currNode] += 1;
-        // cout<<"The ending node for "<<i<<" = "<<currNode<<endl;
-        // cout<<"The number of walks done by "<<i<<" - "<<WalkCount<<endl;
+        PageRank[currNode-1] += 1;
+        cout<<"The ending node = "<<currNode<<endl;
+        cout<<"The number of steps done = "<<WalkCount<<endl;
     }
 
-    // for (size_t i = 0; i < NNodes; i++)
-    // {
-    //     cout<<PageRank[i]<<" ";
-    // }
-    writeFile(PageRank, NNodes);
+    for (size_t i = 0; i < NNodes; i++)
+    {
+        cout<<PageRank[i]<<" ";
+    }
+    // writeFile(PageRank, NNodes);
     return 0;
 }
 
