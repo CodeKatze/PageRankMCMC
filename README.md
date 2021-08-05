@@ -1,5 +1,8 @@
 
-flags and their significance:- 
+## Code 
+
+Flags in the code and their significance:-
+-------------------------------
 
 STOP_AT_DANGLING -> upon encountering a dangling node -> Stop or randomly restart at another node 
 RANDOM_INIT      -> start walk at random node or start m random walks @ each of the NNodes
